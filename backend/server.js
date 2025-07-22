@@ -1,49 +1,77 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const { createError } = require('http-errors');
+const { v4: uuidv4 } = require('uuid');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use(helmet());
 
-app.get('/api/data', async (req, res, next) => {
-    try {
+//Simulate database interaction (replace with actual database connection)
 
-        const data = { message: 'Hello from the API!' };
-        res.json(data);
-    } catch (error) {
-        next(error);
+const data = {};
+
+app.get('/api/data/:id?', (req, res) => {
+    const id = req.params.id;
+    try{
+        if(id){
+            if(!data[id]){
+                return res.status(404).json({error: "Data not found"});
+            }
+            return res.json(data[id]);
+        }
+        return res.json(data);
+    } catch(error){
+        console.error("Error fetching data:", error);
+        return res.status(500).json({error: "Internal Server Error"});
     }
 });
 
-app.post('/api/data', async (req, res, next) => {
-    try {
-
-        const newData = req.body;
-        //Replace with your database insertion or other logic.
-        console.log("Received:", newData);
-        res.status(201).json({ message: 'Data received successfully!' });
-    } catch (error) {
-        next(error);
+app.post('/api/data', (req, res) => {
+    try{
+        const newEntry = {...req.body, id: uuidv4()};
+        data[newEntry.id] = newEntry;
+        res.status(201).json(newEntry);
+    } catch(error){
+        console.error("Error creating data:", error);
+        return res.status(500).json({error: "Internal Server Error"});
     }
 });
 
-//Error Handling Middleware
-app.use((req, res, next) => {
-    next(createError(404, 'Not Found'));
+app.put('/api/data/:id', (req, res) => {
+    const id = req.params.id;
+    try{
+        if(!data[id]){
+            return res.status(404).json({error: "Data not found"});
+        }
+        data[id] = {...data[id], ...req.body};
+        res.json(data[id]);
+    } catch(error){
+        console.error("Error updating data:", error);
+        return res.status(500).json({error: "Internal Server Error"});
+    }
+});
+
+app.delete('/api/data/:id', (req, res) => {
+    const id = req.params.id;
+    try{
+        if(!data[id]){
+            return res.status(404).json({error: "Data not found"});
+        }
+        delete data[id];
+        res.status(204).send();
+    } catch(error){
+        console.error("Error deleting data:", error);
+        return res.status(500).json({error: "Internal Server Error"});
+    }
 });
 
 app.use((err, req, res, next) => {
-    const statusCode = err.status || 500;
-    const message = err.message || 'Internal Server Error';
-    console.error(err);
-    res.status(statusCode).json({ error: message });
+    console.error(err.stack);
+    res.status(500).json({error: "Internal Server Error"});
 });
 
 app.listen(port, () => {
