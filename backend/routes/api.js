@@ -2,95 +2,69 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 
-router.get('/items', async (req, res) => {
-    try {
+// Sample Data (Replace with database interaction)
+let items = [];
 
-      const items = await getItemsFromDatabase();
-      res.json(items);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to retrieve items' });
-    }
+// GET all items
+router.get('/', (req, res) => {
+    res.json(items);
 });
 
-router.post('/items',
-  body('name').notEmpty().withMessage('Name is required'),
-  body('description').notEmpty().withMessage('Description is required'),
-  async (req, res) => {
+// POST a new item
+router.post('/', [
+    body('name').notEmpty().withMessage('Name is required'),
+    body('description').notEmpty().withMessage('Description is required')
+], (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+        return res.status(400).json({ errors: errors.array() });
     }
-    try {
-      const newItem = {
+
+    const newItem = {
+        id: items.length > 0 ? Math.max(...items.map(item => item.id)) + 1 : 1,
         name: req.body.name,
         description: req.body.description
-      };
-
-      const createdItem = await createItemInDatabase(newItem); //Replace with your database function
-      res.status(201).json(createdItem);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to create item' });
-    }
+    };
+    items.push(newItem);
+    res.status(201).json(newItem);
 });
 
-router.put('/items/:id',
-  body('name').notEmpty().withMessage('Name is required'),
-  body('description').notEmpty().withMessage('Description is required'),
-  async (req, res) => {
+// GET a specific item
+router.get('/:id', (req, res) => {
+    const item = items.find(item => item.id === parseInt(req.params.id));
+    if (!item) {
+        return res.status(404).json({ message: 'Item not found' });
+    }
+    res.json(item);
+});
+
+// PUT (update) a specific item
+router.put('/:id', [
+    body('name').notEmpty().withMessage('Name is required'),
+    body('description').notEmpty().withMessage('Description is required')
+], (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+        return res.status(400).json({ errors: errors.array() });
     }
-    const itemId = req.params.id;
-    const updatedItem = {
-        name: req.body.name,
-        description: req.body.description,
-    };
-    try {
-
-      const updated = await updateItemInDatabase(itemId, updatedItem); //Replace with your database function
-      if (!updated) {
-        return res.status(404).json({ error: 'Item not found' });
-      }
-      res.json(updatedItem);
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to update item' });
+    const itemId = parseInt(req.params.id);
+    const itemIndex = items.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) {
+        return res.status(404).json({ message: 'Item not found' });
     }
+    items[itemIndex] = { ...items[itemIndex], ...req.body };
+    res.json(items[itemIndex]);
 });
 
-router.delete('/items/:id', async (req, res) => {
-    const itemId = req.params.id;
-    try {
-
-      const deleted = await deleteItemFromDatabase(itemId); //Replace with your database function
-      if (!deleted) {
-        return res.status(404).json({ error: 'Item not found' });
-      }
-      res.status(204).send();
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Failed to delete item' });
+// DELETE a specific item
+router.delete('/:id', (req, res) => {
+    const itemId = parseInt(req.params.id);
+    const itemIndex = items.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) {
+        return res.status(404).json({ message: 'Item not found' });
     }
+    items.splice(itemIndex, 1);
+    res.status(204).send();
 });
-
-// Placeholder database functions - REPLACE THESE
-const getItemsFromDatabase = async () => {
-    return [{id:1, name:"Item 1", description: "Description 1"}, {id:2, name:"Item 2", description: "Description 2"}];
-};
-
-const createItemInDatabase = async (item) => {
-    return {...item, id:3};
-};
-
-const updateItemInDatabase = async (id, item) => {
-    return item;
-};
-
-const deleteItemFromDatabase = async (id) => {
-    return true;
-};
 
 module.exports = router;
